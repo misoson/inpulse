@@ -34,7 +34,7 @@ module pe_ctrl (
     // -------------------------------------------------------------------------
     // 설명: 클록 상승 에지(posedge clk)에서만 작동하며, 날것의 데이터를 레지스터에 안전하게 담아 깨끗한 출력 신호로 내보냄. 이 과정에서 1클록의 타이밍 지연(latency) 발생
     
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             // 리셋 상황 시 모든 출력 및 내부 레지스터를 0으로 초기화
             conv_out  <= 32'b0;
