@@ -4,7 +4,7 @@ module pe_ctrl (
     // [1. 시스템 기본 신호]
     input wire clk,                // 100MHz 가상 클록 (주기 10ns)
     input wire reset,              // Active-High 리셋 (1일 때 초기화)
-    input wire mode_int4,
+    input wire mode_int4,          // 1: INT4 모드, 0: INT8 모드 (가변 정밀도 제어 신호)
     
     // [2. 내부 모듈 인터페이스 (from pe_mac.v)]
     // TODO: MAC과 비트 폭([31:0]) 및 valid 의미 재확인
@@ -17,6 +17,16 @@ module pe_ctrl (
 );
 
     // -------------------------------------------------------------------------
+    // 가변 정밀도(INT4 / INT8) 모드별 임계값(Threshold) 설정
+    // -------------------------------------------------------------------------
+    wire signed [31:0] target_max;
+    wire signed [31:0] target_min;
+
+    // mode_int4 신호에 따라 상한선/하한선을 다르게 스위칭 (조합회로)
+    assign target_max = mode_int4 ? 32'sd2047 : 32'sd524287;
+    assign target_min = mode_int4 ? -32'sd2047 : -32'sd524287;
+    
+    // -------------------------------------------------------------------------
     // Overflow & Saturation (포화) 처리 (조합회로)
     // -------------------------------------------------------------------------
     // 설명: mac_result가 한계치를 넘을 때, 값이 뒤집히지 않도록
@@ -25,8 +35,8 @@ module pe_ctrl (
     wire signed [31:0] saturated_result;
     
     // 조건 연산자를 이용한 포화 처리 예시
-    assign saturated_result = (mac_result > 32'sd2047) ? 32'sd2047 : // 상한선 돌파 시 고정
-                              (mac_result < -32'sd2047) ? -32'sd2047 : // 하한선 돌파 시 고정
+    assign saturated_result = (mac_result > target_max) ? target_max : // 상한선 돌파 시 고정
+                              (mac_result < target_min) ? target_min : // 하한선 돌파 시 고정
                               mac_result;                            // 정상 범위 내 값 패스
     //INT4 연산 스케일에 맞춰서 Saturation 임계값을 2047로 맞춤
     // -------------------------------------------------------------------------
