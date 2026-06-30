@@ -1,19 +1,12 @@
 module pe_input (
     input  wire        clk,
-    input  wire        rst_n,
+    input  wire        reset,
     input  wire        in_valid,
+    input  wire        mode_int4,
 
-    input  wire        mode_int4,   // 0: INT8, 1: INT4
-
-    input  wire [7:0]  pixel_0,
-    input  wire [7:0]  pixel_1,
-    input  wire [7:0]  pixel_2,
-    input  wire [7:0]  pixel_3,
-    input  wire [7:0]  pixel_4,
-    input  wire [7:0]  pixel_5,
-    input  wire [7:0]  pixel_6,
-    input  wire [7:0]  pixel_7,
-    input  wire [7:0]  pixel_8,
+    input  wire [7:0]  line_out0,
+    input  wire [7:0]  line_out1,
+    input  wire [7:0]  line_out2,
 
     output reg  [7:0]  pe_pixel_0,
     output reg  [7:0]  pe_pixel_1,
@@ -28,8 +21,34 @@ module pe_input (
     output reg         out_valid
 );
 
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
+reg [7:0] row0_shift0, row0_shift1, row0_shift2;
+reg [7:0] row1_shift0, row1_shift1, row1_shift2;
+reg [7:0] row2_shift0, row2_shift1, row2_shift2;
+
+reg [1:0] valid_count;
+
+wire [7:0] line0_data;
+wire [7:0] line1_data;
+wire [7:0] line2_data;
+
+assign line0_data = mode_int4 ? {4'd0, line_out0[3:0]} : line_out0;
+assign line1_data = mode_int4 ? {4'd0, line_out1[3:0]} : line_out1;
+assign line2_data = mode_int4 ? {4'd0, line_out2[3:0]} : line_out2;
+
+always @(posedge clk or posedge reset) begin
+    if (reset) begin
+        row0_shift0 <= 8'd0;
+        row0_shift1 <= 8'd0;
+        row0_shift2 <= 8'd0;
+
+        row1_shift0 <= 8'd0;
+        row1_shift1 <= 8'd0;
+        row1_shift2 <= 8'd0;
+
+        row2_shift0 <= 8'd0;
+        row2_shift1 <= 8'd0;
+        row2_shift2 <= 8'd0;
+
         pe_pixel_0 <= 8'd0;
         pe_pixel_1 <= 8'd0;
         pe_pixel_2 <= 8'd0;
@@ -39,36 +58,46 @@ always @(posedge clk or negedge rst_n) begin
         pe_pixel_6 <= 8'd0;
         pe_pixel_7 <= 8'd0;
         pe_pixel_8 <= 8'd0;
-        out_valid  <= 1'b0;
+
+        valid_count <= 2'd0;
+        out_valid   <= 1'b0;
     end
     else begin
-        out_valid <= in_valid;
-
         if (in_valid) begin
-            if (mode_int4) begin
-                // INT4 mode: 하위 4bit만 사용, 상위 4bit는 0으로 채움
-                pe_pixel_0 <= {4'd0, pixel_0[3:0]};
-                pe_pixel_1 <= {4'd0, pixel_1[3:0]};
-                pe_pixel_2 <= {4'd0, pixel_2[3:0]};
-                pe_pixel_3 <= {4'd0, pixel_3[3:0]};
-                pe_pixel_4 <= {4'd0, pixel_4[3:0]};
-                pe_pixel_5 <= {4'd0, pixel_5[3:0]};
-                pe_pixel_6 <= {4'd0, pixel_6[3:0]};
-                pe_pixel_7 <= {4'd0, pixel_7[3:0]};
-                pe_pixel_8 <= {4'd0, pixel_8[3:0]};
+            row0_shift2 <= row0_shift1;
+            row0_shift1 <= row0_shift0;
+            row0_shift0 <= line0_data;
+
+            row1_shift2 <= row1_shift1;
+            row1_shift1 <= row1_shift0;
+            row1_shift0 <= line1_data;
+
+            row2_shift2 <= row2_shift1;
+            row2_shift1 <= row2_shift0;
+            row2_shift0 <= line2_data;
+
+            if (valid_count < 2'd2) begin
+                valid_count <= valid_count + 1'b1;
+                out_valid <= 1'b0;
             end
             else begin
-                // INT8 mode
-                pe_pixel_0 <= pixel_0;
-                pe_pixel_1 <= pixel_1;
-                pe_pixel_2 <= pixel_2;
-                pe_pixel_3 <= pixel_3;
-                pe_pixel_4 <= pixel_4;
-                pe_pixel_5 <= pixel_5;
-                pe_pixel_6 <= pixel_6;
-                pe_pixel_7 <= pixel_7;
-                pe_pixel_8 <= pixel_8;
+                out_valid <= 1'b1;
             end
+
+            pe_pixel_0 <= row0_shift2;
+            pe_pixel_1 <= row0_shift1;
+            pe_pixel_2 <= row0_shift0;
+
+            pe_pixel_3 <= row1_shift2;
+            pe_pixel_4 <= row1_shift1;
+            pe_pixel_5 <= row1_shift0;
+
+            pe_pixel_6 <= row2_shift2;
+            pe_pixel_7 <= row2_shift1;
+            pe_pixel_8 <= row2_shift0;
+        end
+        else begin
+            out_valid <= 1'b0;
         end
     end
 end
