@@ -1,0 +1,421 @@
+$date
+	Sat Jul  4 17:32:21 2026
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb_pe_act_wrapper $end
+$var wire 1 ! valid_out $end
+$var wire 16 " data_out [15:0] $end
+$var reg 1 # clk $end
+$var reg 32 $ mac_result [31:0] $end
+$var reg 1 % mode_int4 $end
+$var reg 1 & pe_enable $end
+$var reg 1 ' reset $end
+$var reg 1 ( track_sel $end
+$var reg 1 ) valid_d $end
+$var real 1 * data_out_real $end
+$scope module DUT $end
+$var wire 1 # clk $end
+$var wire 32 + mac_result [31:0] $end
+$var wire 1 % mode_int4 $end
+$var wire 1 & pe_enable $end
+$var wire 1 ' reset $end
+$var wire 1 ( track_sel $end
+$var wire 1 ) valid_d $end
+$var wire 1 ! valid_out $end
+$var wire 1 , reset_n $end
+$var wire 1 - pe_valid_out $end
+$var wire 16 . data_out [15:0] $end
+$var wire 32 / conv_out [31:0] $end
+$var wire 16 0 bridged_data [15:0] $end
+$var parameter 32 1 DATA_WIDTH $end
+$var parameter 32 2 FRAC_WIDTH $end
+$scope module u_activation_unit $end
+$var wire 1 # clk $end
+$var wire 1 & enable $end
+$var wire 1 ( track_sel $end
+$var wire 1 - valid_in $end
+$var wire 16 3 shifted_x [15:0] $end
+$var wire 1 , reset_n $end
+$var wire 16 4 data_in [15:0] $end
+$var parameter 32 5 DATA_WIDTH $end
+$var parameter 16 6 FP_HALF $end
+$var parameter 16 7 FP_ONE $end
+$var parameter 16 8 FP_ZERO $end
+$var parameter 32 9 FRAC_WIDTH $end
+$var parameter 16 : NEG_THRESHOLD $end
+$var parameter 16 ; POS_THRESHOLD $end
+$var reg 16 < act_result_comb [15:0] $end
+$var reg 16 = data_out [15:0] $end
+$var reg 16 > relu_result [15:0] $end
+$var reg 16 ? sigmoid_result [15:0] $end
+$var reg 1 ! valid_out $end
+$upscope $end
+$scope module u_mac_to_q88_bridge $end
+$var wire 1 % mode_int4 $end
+$var wire 32 @ shifted_val [31:0] $end
+$var wire 16 A data_q88 [15:0] $end
+$var wire 32 B conv_out [31:0] $end
+$var wire 32 C clipped_val [31:0] $end
+$var parameter 32 D DATA_WIDTH $end
+$var parameter 32 E FRAC_WIDTH $end
+$var parameter 32 F Q88_MAX $end
+$var parameter 32 G Q88_MIN $end
+$var parameter 32 H SHIFT_AMT $end
+$upscope $end
+$scope module u_pe_ctrl $end
+$var wire 1 # clk $end
+$var wire 32 I mac_result [31:0] $end
+$var wire 1 % mode_int4 $end
+$var wire 1 ' reset $end
+$var wire 1 ) valid_d $end
+$var wire 32 J target_min [31:0] $end
+$var wire 32 K target_max [31:0] $end
+$var wire 32 L saturated_result [31:0] $end
+$var reg 32 M conv_out [31:0] $end
+$var reg 1 - valid_out $end
+$upscope $end
+$scope module u_reset_bridge $end
+$var wire 1 # clk $end
+$var wire 1 ' reset $end
+$var wire 1 , reset_n $end
+$var reg 1 N sync0 $end
+$var reg 1 O sync1 $end
+$upscope $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+b100 H
+b11111111111111111000000000000000 G
+b111111111111111 F
+b1000 E
+b10000 D
+b10000000000 ;
+b1111110000000000 :
+b1000 9
+b0 8
+b100000000 7
+b10000000 6
+b10000 5
+b1000 2
+b10000 1
+$end
+#0
+$dumpvars
+0O
+0N
+b0 M
+b0 L
+b1111111111111111111 K
+b11111111111110000000000000000001 J
+b0 I
+b0 C
+b0 B
+b0 A
+b0 @
+b10000000 ?
+b0 >
+b0 =
+b0 <
+b0 4
+b0 3
+b0 0
+b0 /
+b0 .
+0-
+0,
+b0 +
+r0 *
+0)
+0(
+1'
+1&
+0%
+b0 $
+0#
+b0 "
+0!
+$end
+#5000
+1#
+#10000
+0#
+#15000
+1#
+#20000
+0#
+#25000
+1N
+0'
+1#
+#30000
+0#
+#35000
+1,
+1O
+1-
+b11000011010100000 L
+1)
+b11000011010100000 $
+b11000011010100000 +
+b11000011010100000 I
+1#
+#40000
+0#
+#45000
+b1100001101010 <
+b1100001101 3
+b100000000 ?
+b1100001101010 >
+b1100001101010 0
+b1100001101010 4
+b1100001101010 A
+b1100001101010 C
+b1100001101010 @
+1!
+0-
+b11000011010100000 /
+b11000011010100000 B
+b11000011010100000 M
+0)
+1#
+#50000
+0#
+#55000
+r24.4140625 *
+0!
+b1100001101010 "
+b1100001101010 .
+b1100001101010 =
+1#
+#60000
+0#
+#65000
+1#
+#70000
+0#
+#75000
+1#
+#80000
+0#
+#85000
+1-
+b1111111111111111111 L
+b100000000 <
+1)
+b11011011101110100000 $
+b11011011101110100000 +
+b11011011101110100000 I
+1(
+1#
+#90000
+0#
+#95000
+b111111111111 3
+b111111111111111 >
+b111111111111111 0
+b111111111111111 4
+b111111111111111 A
+b111111111111111 C
+b111111111111111 @
+r1 *
+1!
+b100000000 "
+b100000000 .
+b100000000 =
+0-
+b1111111111111111111 /
+b1111111111111111111 B
+b1111111111111111111 M
+0)
+1#
+#100000
+0#
+#105000
+0!
+1#
+#110000
+0#
+#115000
+1#
+#120000
+0#
+#125000
+1#
+#130000
+0#
+#135000
+1-
+b11111111111111111111101000100100 L
+b111111111111111 <
+b11111111111111111110000 @
+b11111111111 K
+b11111111111111111111100000000001 J
+1)
+b11111111111111111111101000100100 $
+b11111111111111111111101000100100 +
+b11111111111111111111101000100100 I
+0(
+1%
+1#
+#140000
+0#
+#145000
+b0 <
+b1111010001001000 3
+b0 ?
+b0 >
+b1010001001000000 0
+b1010001001000000 4
+b1010001001000000 A
+b11111111111111111010001001000000 C
+b11111111111111111010001001000000 @
+r127.99609375 *
+1!
+b111111111111111 "
+b111111111111111 .
+b111111111111111 =
+0-
+b11111111111111111111101000100100 /
+b11111111111111111111101000100100 B
+b11111111111111111111101000100100 M
+0)
+1#
+#150000
+0#
+#155000
+r0 *
+0!
+b0 "
+b0 .
+b0 =
+1#
+#160000
+0#
+#165000
+1#
+#170000
+0#
+#175000
+1#
+#180000
+0#
+#185000
+1-
+b11111111111 L
+1)
+b101110111000 $
+b101110111000 +
+b101110111000 I
+1(
+1#
+#190000
+0#
+#195000
+b100000000 <
+b111111111110 3
+b100000000 ?
+b111111111110000 >
+b111111111110000 0
+b111111111110000 4
+b111111111110000 A
+b111111111110000 C
+b111111111110000 @
+1!
+0-
+b11111111111 /
+b11111111111 B
+b11111111111 M
+0)
+1#
+#200000
+0#
+#205000
+r1 *
+0!
+b100000000 "
+b100000000 .
+b100000000 =
+1#
+#210000
+0#
+#215000
+1#
+#220000
+0#
+#225000
+1#
+#230000
+0#
+#235000
+1-
+b10001111 <
+b1111 3
+b10001111 ?
+b1111111 >
+b1111111 0
+b1111111 4
+b1111111 A
+b1111111 C
+b1100001101010000 L
+b1111111 @
+b1111111111111111111 K
+b11111111111110000000000000000001 J
+1)
+b1100001101010000 $
+b1100001101010000 +
+b1100001101010000 I
+0%
+0&
+1#
+#240000
+0#
+#245000
+b100000000 <
+b110000110 3
+b100000000 ?
+b110000110101 >
+b110000110101 0
+b110000110101 4
+b110000110101 A
+b110000110101 C
+b110000110101 @
+r0.55859375 *
+1!
+b10001111 "
+b10001111 .
+b10001111 =
+0-
+b1100001101010000 /
+b1100001101010000 B
+b1100001101010000 M
+1&
+0)
+1#
+#250000
+0#
+#255000
+r1 *
+0!
+b100000000 "
+b100000000 .
+b100000000 =
+1#
+#260000
+0#
+#265000
+1#
+#270000
+0#
+#275000
+1#
+#280000
+0#
+#285000
+1#
