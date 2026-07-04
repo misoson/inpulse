@@ -2,7 +2,7 @@
 % 최신 매틀랩 규격에 맞게 함수명을 수정하고, 우리가 합친 단일 파일을 불러옵니다.
 net = importNetworkFromONNX('deepfill_v2_combined.onnx', 'OutputLayerType', 'regression');
 
-% 네트워크 구조 시각화 창 띄우기 (조원 공유용 인증샷용)
+% 네트워크 구조 시각화 창 띄우기
 analyzeNetwork(net); 
 
 
