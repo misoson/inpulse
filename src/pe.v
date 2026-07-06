@@ -4,8 +4,9 @@ module pe #(
     parameter DATA_WIDTH = 8
 )(
     input  wire clk,
-    input  wire reset,        // Active-high reset
-    input  wire mode_int4,    // 1: INT4, 0: INT8
+    input  wire reset,        // active-high reset
+
+    input  wire mode_int4,    // 0: INT8, 1: INT4
 
     // from line_buffer
     input  wire in_valid,
@@ -13,7 +14,7 @@ module pe #(
     input  wire [DATA_WIDTH-1:0] line_out1,
     input  wire [DATA_WIDTH-1:0] line_out2,
 
-    // weights
+    // 3x3 kernel weights
     input  wire signed [DATA_WIDTH-1:0] weight_0,
     input  wire signed [DATA_WIDTH-1:0] weight_1,
     input  wire signed [DATA_WIDTH-1:0] weight_2,
@@ -28,12 +29,12 @@ module pe #(
 
     // to activation_unit
     output reg signed [31:0] conv_out,
-    output reg valid_out
+    output reg               valid_out
 );
 
     // =========================================================
-    // 1. 입력부: pe_input 기능
-    // line_buffer의 3-line 출력을 3x3 window로 변환
+    // 1. INPUT PART
+    //    line_buffer의 3-line 출력으로부터 3x3 window 생성
     // =========================================================
 
     reg [DATA_WIDTH-1:0] row0_shift0, row0_shift1, row0_shift2;
@@ -51,7 +52,7 @@ module pe #(
     reg [DATA_WIDTH-1:0] pe_pixel_8;
 
     reg [1:0] valid_count;
-    reg pe_in_valid;
+    reg       input_valid_d;
 
     wire [DATA_WIDTH-1:0] line0_data;
     wire [DATA_WIDTH-1:0] line1_data;
@@ -61,20 +62,113 @@ module pe #(
     assign line1_data = mode_int4 ? { {(DATA_WIDTH-4){1'b0}}, line_out1[3:0] } : line_out1;
     assign line2_data = mode_int4 ? { {(DATA_WIDTH-4){1'b0}}, line_out2[3:0] } : line_out2;
 
+    // =========================================================
+    // 2. MAC PART
+    //    INT8 / INT4 mode에 따라 3x3 convolution 수행
+    // =========================================================
+
+    function signed [31:0] mul_pw;
+        input [DATA_WIDTH-1:0] pixel;
+        input signed [DATA_WIDTH-1:0] weight;
+        input mode_int4_f;
+
+        reg signed [DATA_WIDTH:0] pixel_ext;
+        reg signed [DATA_WIDTH-1:0] weight_ext;
+        begin
+            if (mode_int4_f) begin
+                // INT4 mode
+                // pixel  : unsigned 4-bit, 0 ~ 15
+                // weight : signed 4-bit, -8 ~ +7
+                pixel_ext  = {{(DATA_WIDTH-3){1'b0}}, pixel[3:0]};
+                weight_ext = {{(DATA_WIDTH-4){weight[3]}}, weight[3:0]};
+            end
+            else begin
+                // INT8 mode
+                // pixel  : unsigned 8-bit, 0 ~ 255
+                // weight : signed 8-bit, -128 ~ +127
+                pixel_ext  = {1'b0, pixel};
+                weight_ext = weight;
+            end
+
+            mul_pw = pixel_ext * weight_ext;
+        end
+    endfunction
+
+    wire signed [31:0] mac_result_comb;
+
+    assign mac_result_comb =
+        mul_pw(pe_pixel_0, weight_0, mode_int4) +
+        mul_pw(pe_pixel_1, weight_1, mode_int4) +
+        mul_pw(pe_pixel_2, weight_2, mode_int4) +
+        mul_pw(pe_pixel_3, weight_3, mode_int4) +
+        mul_pw(pe_pixel_4, weight_4, mode_int4) +
+        mul_pw(pe_pixel_5, weight_5, mode_int4) +
+        mul_pw(pe_pixel_6, weight_6, mode_int4) +
+        mul_pw(pe_pixel_7, weight_7, mode_int4) +
+        mul_pw(pe_pixel_8, weight_8, mode_int4) +
+        bias;
+
+    reg signed [31:0] mac_result;
+    reg               mac_valid;
+
+    // =========================================================
+    // 3. CTRL PART
+    //    Saturation + output pipeline
+    // =========================================================
+
+    wire signed [31:0] target_max;
+    wire signed [31:0] target_min;
+
+    assign target_max = mode_int4 ? 32'sd2047   : 32'sd524287;
+    assign target_min = mode_int4 ? -32'sd2047  : -32'sd524287;
+
+    wire signed [31:0] saturated_result;
+
+    assign saturated_result = (mac_result > target_max) ? target_max :
+                              (mac_result < target_min) ? target_min :
+                              mac_result;
+
+    // =========================================================
+    // 4. Sequential Pipeline
+    // =========================================================
+
     always @(posedge clk or posedge reset) begin
         if (reset) begin
-            row0_shift0 <= 0; row0_shift1 <= 0; row0_shift2 <= 0;
-            row1_shift0 <= 0; row1_shift1 <= 0; row1_shift2 <= 0;
-            row2_shift0 <= 0; row2_shift1 <= 0; row2_shift2 <= 0;
+            row0_shift0 <= 0;
+            row0_shift1 <= 0;
+            row0_shift2 <= 0;
 
-            pe_pixel_0 <= 0; pe_pixel_1 <= 0; pe_pixel_2 <= 0;
-            pe_pixel_3 <= 0; pe_pixel_4 <= 0; pe_pixel_5 <= 0;
-            pe_pixel_6 <= 0; pe_pixel_7 <= 0; pe_pixel_8 <= 0;
+            row1_shift0 <= 0;
+            row1_shift1 <= 0;
+            row1_shift2 <= 0;
 
-            valid_count <= 2'd0;
-            pe_in_valid <= 1'b0;
+            row2_shift0 <= 0;
+            row2_shift1 <= 0;
+            row2_shift2 <= 0;
+
+            pe_pixel_0 <= 0;
+            pe_pixel_1 <= 0;
+            pe_pixel_2 <= 0;
+            pe_pixel_3 <= 0;
+            pe_pixel_4 <= 0;
+            pe_pixel_5 <= 0;
+            pe_pixel_6 <= 0;
+            pe_pixel_7 <= 0;
+            pe_pixel_8 <= 0;
+
+            valid_count   <= 2'd0;
+            input_valid_d <= 1'b0;
+
+            mac_result <= 32'sd0;
+            mac_valid  <= 1'b0;
+
+            conv_out  <= 32'sd0;
+            valid_out <= 1'b0;
         end
         else begin
+            // -------------------------------
+            // INPUT window generation
+            // -------------------------------
             if (in_valid) begin
                 row0_shift2 <= row0_shift1;
                 row0_shift1 <= row0_shift0;
@@ -89,11 +183,11 @@ module pe #(
                 row2_shift0 <= line2_data;
 
                 if (valid_count < 2'd2) begin
-                    valid_count <= valid_count + 1'b1;
-                    pe_in_valid <= 1'b0;
+                    valid_count   <= valid_count + 1'b1;
+                    input_valid_d <= 1'b0;
                 end
                 else begin
-                    pe_in_valid <= 1'b1;
+                    input_valid_d <= 1'b1;
                 end
 
                 pe_pixel_0 <= row0_shift2;
@@ -109,85 +203,25 @@ module pe #(
                 pe_pixel_8 <= row2_shift0;
             end
             else begin
-                pe_in_valid <= 1'b0;
+                input_valid_d <= 1'b0;
             end
-        end
-    end
 
-    // =========================================================
-    // 2. 연산부: 3x3 MAC
-    // Conv = pixel*weight 9개 합 + bias
-    // =========================================================
+            // -------------------------------
+            // MAC pipeline register
+            // -------------------------------
+            if (input_valid_d) begin
+                mac_result <= mac_result_comb;
+                mac_valid  <= 1'b1;
+            end
+            else begin
+                mac_valid <= 1'b0;
+            end
 
-    function signed [31:0] pixel_ext;
-        input [DATA_WIDTH-1:0] x;
-        begin
-            pixel_ext = mode_int4 ? $signed({28'b0, x[3:0]}) :
-                                    $signed({24'b0, x[7:0]});
-        end
-    endfunction
-
-    function signed [31:0] weight_ext;
-        input signed [DATA_WIDTH-1:0] w;
-        begin
-            weight_ext = mode_int4 ? $signed({{28{w[3]}}, w[3:0]}) :
-                                     $signed({{24{w[7]}}, w[7:0]});
-        end
-    endfunction
-
-    wire signed [31:0] mac_sum;
-
-    assign mac_sum =
-        pixel_ext(pe_pixel_0) * weight_ext(weight_0) +
-        pixel_ext(pe_pixel_1) * weight_ext(weight_1) +
-        pixel_ext(pe_pixel_2) * weight_ext(weight_2) +
-        pixel_ext(pe_pixel_3) * weight_ext(weight_3) +
-        pixel_ext(pe_pixel_4) * weight_ext(weight_4) +
-        pixel_ext(pe_pixel_5) * weight_ext(weight_5) +
-        pixel_ext(pe_pixel_6) * weight_ext(weight_6) +
-        pixel_ext(pe_pixel_7) * weight_ext(weight_7) +
-        pixel_ext(pe_pixel_8) * weight_ext(weight_8) +
-        bias;
-
-    reg signed [31:0] mac_result;
-    reg valid_d;
-
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            mac_result <= 32'sd0;
-            valid_d    <= 1'b0;
-        end
-        else begin
-            mac_result <= mac_sum;
-            valid_d    <= pe_in_valid;
-        end
-    end
-
-    // =========================================================
-    // 3. 제어부/출력부: pe_ctrl 기능
-    // saturation + valid_out 생성
-    // =========================================================
-
-    wire signed [31:0] target_max;
-    wire signed [31:0] target_min;
-
-    assign target_max = mode_int4 ? 32'sd2047 : 32'sd524287;
-    assign target_min = mode_int4 ? -32'sd2047 : -32'sd524287;
-
-    wire signed [31:0] saturated_result;
-
-    assign saturated_result = (mac_result > target_max) ? target_max :
-                              (mac_result < target_min) ? target_min :
-                              mac_result;
-
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            conv_out  <= 32'sd0;
-            valid_out <= 1'b0;
-        end
-        else begin
+            // -------------------------------
+            // CTRL output register
+            // -------------------------------
             conv_out  <= saturated_result;
-            valid_out <= valid_d;
+            valid_out <= mac_valid;
         end
     end
 
