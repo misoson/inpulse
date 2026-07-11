@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 2026/07/11 12:04:41
+// Create Date: 2026/07/11 10:35:24
 // Design Name: 
-// Module Name: tb_weight_buffer
+// Module Name: weight_buffer
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,138 +20,91 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module tb_weight_buffer;
+module weight_buffer #(
+    parameter DATA_WIDTH = 8
+)(
+    input  wire clk,
+    input  wire reset,
 
-    parameter DATA_WIDTH = 8;
+    // ì™¸ë¶€(Testbench ë˜ëŠ” AXI)ì—ì„œ ê°€ì¤‘ì¹˜ë¥¼ ì…ë ¥í•˜ëŠ” í¬íŠ¸ (32-bit Bus)
+    input  wire        wr_en,       // ì“°ê¸° í™œì„±í™” ì‹ í˜¸
+    input  wire [3:0]  wr_addr,     // 0~15ê¹Œì§€ì˜ ì£¼ì†Œ
+    input  wire [31:0] wr_data,     // 32ë¹„íŠ¸ ì…ë ¥ ë°ì´í„°
 
-    // ÀÔ·Â ·¹Áö½ºÅÍ (Testbench¿¡¼­ Á¦¾î)
-    reg clk;
-    reg reset;
-    
-    reg write_en;
-    reg [5:0] weight_addr;
-    reg signed [DATA_WIDTH-1:0] weight_in;
-    
-    reg bias_write_en;
-    reg [1:0] bias_addr;
-    reg signed [31:0] bias_in;
+    // PE0 ì¶œë ¥
+    output wire signed [DATA_WIDTH-1:0] pe0_weight_0, pe0_weight_1, pe0_weight_2, pe0_weight_3,
+    output wire signed [DATA_WIDTH-1:0] pe0_weight_4, pe0_weight_5, pe0_weight_6, pe0_weight_7,
+    output wire signed [DATA_WIDTH-1:0] pe0_weight_8,
+    output wire signed [31:0]           pe0_bias,
 
-    // Ãâ·Â ¿ÍÀÌ¾î (PE0 ~ PE3)
-    wire signed [DATA_WIDTH-1:0] pe0_w0, pe0_w1, pe0_w2, pe0_w3, pe0_w4, pe0_w5, pe0_w6, pe0_w7, pe0_w8;
-    wire signed [31:0] pe0_bias;
-    
-    wire signed [DATA_WIDTH-1:0] pe1_w0, pe1_w1, pe1_w2, pe1_w3, pe1_w4, pe1_w5, pe1_w6, pe1_w7, pe1_w8;
-    wire signed [31:0] pe1_bias;
-    
-    wire signed [DATA_WIDTH-1:0] pe2_w0, pe2_w1, pe2_w2, pe2_w3, pe2_w4, pe2_w5, pe2_w6, pe2_w7, pe2_w8;
-    wire signed [31:0] pe2_bias;
-    
-    wire signed [DATA_WIDTH-1:0] pe3_w0, pe3_w1, pe3_w2, pe3_w3, pe3_w4, pe3_w5, pe3_w6, pe3_w7, pe3_w8;
-    wire signed [31:0] pe3_bias;
+    // PE1 ì¶œë ¥
+    output wire signed [DATA_WIDTH-1:0] pe1_weight_0, pe1_weight_1, pe1_weight_2, pe1_weight_3,
+    output wire signed [DATA_WIDTH-1:0] pe1_weight_4, pe1_weight_5, pe1_weight_6, pe1_weight_7,
+    output wire signed [DATA_WIDTH-1:0] pe1_weight_8,
+    output wire signed [31:0]           pe1_bias,
 
-    // Å×½ºÆ®ÇÒ UUT (Unit Under Test) ÀÎ½ºÅÏ½ºÈ­
-    weight_buffer #(
-        .DATA_WIDTH(DATA_WIDTH)
-    ) uut (
-        .clk(clk),
-        .reset(reset),
-        
-        .write_en(write_en),
-        .weight_addr(weight_addr),
-        .weight_in(weight_in),
-        
-        .bias_write_en(bias_write_en),
-        .bias_addr(bias_addr),
-        .bias_in(bias_in),
-        
-        // PE0
-        .pe0_weight_0(pe0_w0), .pe0_weight_1(pe0_w1), .pe0_weight_2(pe0_w2),
-        .pe0_weight_3(pe0_w3), .pe0_weight_4(pe0_w4), .pe0_weight_5(pe0_w5),
-        .pe0_weight_6(pe0_w6), .pe0_weight_7(pe0_w7), .pe0_weight_8(pe0_w8),
-        .pe0_bias(pe0_bias),
-        
-        // PE1
-        .pe1_weight_0(pe1_w0), .pe1_weight_1(pe1_w1), .pe1_weight_2(pe1_w2),
-        .pe1_weight_3(pe1_w3), .pe1_weight_4(pe1_w4), .pe1_weight_5(pe1_w5),
-        .pe1_weight_6(pe1_w6), .pe1_weight_7(pe1_w7), .pe1_weight_8(pe1_w8),
-        .pe1_bias(pe1_bias),
-        
-        // PE2
-        .pe2_weight_0(pe2_w0), .pe2_weight_1(pe2_w1), .pe2_weight_2(pe2_w2),
-        .pe2_weight_3(pe2_w3), .pe2_weight_4(pe2_w4), .pe2_weight_5(pe2_w5),
-        .pe2_weight_6(pe2_w6), .pe2_weight_7(pe2_w7), .pe2_weight_8(pe2_w8),
-        .pe2_bias(pe2_bias),
-        
-        // PE3
-        .pe3_weight_0(pe3_w0), .pe3_weight_1(pe3_w1), .pe3_weight_2(pe3_w2),
-        .pe3_weight_3(pe3_w3), .pe3_weight_4(pe3_w4), .pe3_weight_5(pe3_w5),
-        .pe3_weight_6(pe3_w6), .pe3_weight_7(pe3_w7), .pe3_weight_8(pe3_w8),
-        .pe3_bias(pe3_bias)
-    );
+    // PE2 ì¶œë ¥
+    output wire signed [DATA_WIDTH-1:0] pe2_weight_0, pe2_weight_1, pe2_weight_2, pe2_weight_3,
+    output wire signed [DATA_WIDTH-1:0] pe2_weight_4, pe2_weight_5, pe2_weight_6, pe2_weight_7,
+    output wire signed [DATA_WIDTH-1:0] pe2_weight_8,
+    output wire signed [31:0]           pe2_bias,
 
-    // 10ns ÁÖ±âÀÇ Å¬·° »ı¼º
-    always #5 clk = ~clk;
+    // PE3 ì¶œë ¥
+    output wire signed [DATA_WIDTH-1:0] pe3_weight_0, pe3_weight_1, pe3_weight_2, pe3_weight_3,
+    output wire signed [DATA_WIDTH-1:0] pe3_weight_4, pe3_weight_5, pe3_weight_6, pe3_weight_7,
+    output wire signed [DATA_WIDTH-1:0] pe3_weight_8,
+    output wire signed [31:0]           pe3_bias
+);
 
-    // Å×½ºÆ® ½Ã³ª¸®¿À ½ÃÀÛ
+    // 16ê°œì˜ 32ë¹„íŠ¸ ë ˆì§€ìŠ¤í„°(ë©”ëª¨ë¦¬) ì„ ì–¸
+    reg [31:0] mem [0:15];
     integer i;
-    initial begin
-        // 1. ÃÊ±âÈ­
-        clk = 0;
-        reset = 1;
-        write_en = 0;
-        weight_addr = 0;
-        weight_in = 0;
-        bias_write_en = 0;
-        bias_addr = 0;
-        bias_in = 0;
 
-        #20 reset = 0;
-        #10;
-
-        // 2. °¡ÁßÄ¡ 36°³ ¼øÂ÷ ¾²±â (Sequential Write)
-        $display("[1] °¡ÁßÄ¡ µ¥ÀÌÅÍ ÀûÀç ½ÃÀÛ");
-        write_en = 1;
-        for (i = 0; i < 36; i = i + 1) begin
-            weight_addr = i;
-            weight_in = i + 10; // (¿¹: ÁÖ¼Ò 0¿¡´Â 10, ÁÖ¼Ò 35¿¡´Â 45 ÀÔ·Â)
-            #10;
+    // ì“°ê¸° ë™ì‘ (Write)
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            for (i = 0; i < 16; i = i + 1) begin
+                mem[i] <= 32'd0;
+            end
         end
-        write_en = 0;
-
-        // 3. ¹ÙÀÌ¾î½º 4°³ ¼øÂ÷ ¾²±â (Sequential Write)
-        $display("[2] ¹ÙÀÌ¾î½º µ¥ÀÌÅÍ ÀûÀç ½ÃÀÛ");
-        bias_write_en = 1;
-        for (i = 0; i < 4; i = i + 1) begin
-            bias_addr = i;
-            bias_in = (i + 1) * 1000; // (¿¹: 1000, 2000, 3000, 4000)
-            #10;
+        else if (wr_en) begin
+            mem[wr_addr] <= wr_data;
         end
-        bias_write_en = 0;
-
-        // ¾à°£ ´ë±â
-        #20;
-
-        // 4. º´·Ä Ãâ·Â °á°ú È®ÀÎ (Parallel Read Check)
-        $display("\n[3] º´·Ä Ãâ·Â °á°ú È®ÀÎ");
-        
-        $display("[PE0] W0:%0d, W1:%0d, W8:%0d | Bias:%0d", pe0_w0, pe0_w1, pe0_w8, pe0_bias);
-        if (pe0_w0 == 10 && pe0_w8 == 18 && pe0_bias == 1000) $display(" -> PE0 Åë°ú!");
-        else $display(" -> PE0 ½ÇÆĞ");
-
-        $display("[PE1] W0:%0d, W1:%0d, W8:%0d | Bias:%0d", pe1_w0, pe1_w1, pe1_w8, pe1_bias);
-        if (pe1_w0 == 19 && pe1_w8 == 27 && pe1_bias == 2000) $display(" -> PE1 Åë°ú!");
-        else $display(" -> PE1 ½ÇÆĞ");
-
-        $display("[PE2] W0:%0d, W1:%0d, W8:%0d | Bias:%0d", pe2_w0, pe2_w1, pe2_w8, pe2_bias);
-        if (pe2_w0 == 28 && pe2_w8 == 36 && pe2_bias == 3000) $display(" -> PE2 Åë°ú!");
-        else $display(" -> PE2 ½ÇÆĞ");
-
-        $display("[PE3] W0:%0d, W1:%0d, W8:%0d | Bias:%0d", pe3_w0, pe3_w1, pe3_w8, pe3_bias);
-        if (pe3_w0 == 37 && pe3_w8 == 45 && pe3_bias == 4000) $display(" -> PE3 Åë°ú!");
-        else $display(" -> PE3 ½ÇÆĞ");
-
-        $display("\n½Ã¹Ä·¹ÀÌ¼Ç ¿Ï·á");
-        $finish;
     end
+
+    // ì½ê¸° ë™ì‘ (ì—°ì† í• ë‹¹ - Constant Read)
+    // ë©”ëª¨ë¦¬ì— ì €ì¥ëœ ê°’ì„ 8ë¹„íŠ¸ì”© ìª¼ê°œì„œ ê° PEì˜ í¬íŠ¸ë¡œ í•­ìƒ ì¶œë ¥í•©ë‹ˆë‹¤.
+    
+    // PE0 í• ë‹¹ (ì£¼ì†Œ 0~3)
+    assign pe0_weight_0 = mem[0][7:0];   assign pe0_weight_1 = mem[0][15:8];
+    assign pe0_weight_2 = mem[0][23:16]; assign pe0_weight_3 = mem[0][31:24];
+    assign pe0_weight_4 = mem[1][7:0];   assign pe0_weight_5 = mem[1][15:8];
+    assign pe0_weight_6 = mem[1][23:16]; assign pe0_weight_7 = mem[1][31:24];
+    assign pe0_weight_8 = mem[2][7:0];
+    assign pe0_bias     = mem[3];
+
+    // PE1 í• ë‹¹ (ì£¼ì†Œ 4~7)
+    assign pe1_weight_0 = mem[4][7:0];   assign pe1_weight_1 = mem[4][15:8];
+    assign pe1_weight_2 = mem[4][23:16]; assign pe1_weight_3 = mem[4][31:24];
+    assign pe1_weight_4 = mem[5][7:0];   assign pe1_weight_5 = mem[5][15:8];
+    assign pe1_weight_6 = mem[5][23:16]; assign pe1_weight_7 = mem[5][31:24];
+    assign pe1_weight_8 = mem[6][7:0];
+    assign pe1_bias     = mem[7];
+
+    // PE2 í• ë‹¹ (ì£¼ì†Œ 8~11)
+    assign pe2_weight_0 = mem[8][7:0];   assign pe2_weight_1 = mem[8][15:8];
+    assign pe2_weight_2 = mem[8][23:16]; assign pe2_weight_3 = mem[8][31:24];
+    assign pe2_weight_4 = mem[9][7:0];   assign pe2_weight_5 = mem[9][15:8];
+    assign pe2_weight_6 = mem[9][23:16]; assign pe2_weight_7 = mem[9][31:24];
+    assign pe2_weight_8 = mem[10][7:0];
+    assign pe2_bias     = mem[11];
+
+    // PE3 í• ë‹¹ (ì£¼ì†Œ 12~15)
+    assign pe3_weight_0 = mem[12][7:0];   assign pe3_weight_1 = mem[12][15:8];
+    assign pe3_weight_2 = mem[12][23:16]; assign pe3_weight_3 = mem[12][31:24];
+    assign pe3_weight_4 = mem[13][7:0];   assign pe3_weight_5 = mem[13][15:8];
+    assign pe3_weight_6 = mem[13][23:16]; assign pe3_weight_7 = mem[13][31:24];
+    assign pe3_weight_8 = mem[14][7:0];
+    assign pe3_bias     = mem[15];
 
 endmodule
