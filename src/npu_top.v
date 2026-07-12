@@ -38,18 +38,15 @@ module npu_top #(
     input  wire                  photo_data_valid,
     input  wire [DATA_WIDTH-1:0] pixel_data_in,
 
-    // Temporary Feature weight/bias interface
-    // Weight layout:
-    // PE0 = weight 0~8
-    // PE1 = weight 9~17
-    // PE2 = weight 18~26
-    // PE3 = weight 27~35
-    input wire signed [(4*9*DATA_WIDTH)-1:0] feat_weights_flat,
-    input wire signed [(4*32)-1:0]           feat_biases_flat,
+    // New Feature weight buffer interface
+    input wire        feat_weight_wr_en,
+    input wire [3:0]  feat_weight_wr_addr,
+    input wire [31:0] feat_weight_wr_data,
 
-    // Temporary Gate weight/bias interface
-    input wire signed [(4*9*DATA_WIDTH)-1:0] gate_weights_flat,
-    input wire signed [(4*32)-1:0]           gate_biases_flat,
+    // New Gate weight buffer interface
+    input wire        gate_weight_wr_en,
+    input wire [3:0]  gate_weight_wr_addr,
+    input wire [31:0] gate_weight_wr_data,
 
     // Four output channels, signed Q8.8
     output reg signed [ACT_DATA_WIDTH-1:0] out_ch0,
@@ -84,8 +81,59 @@ module npu_top #(
     wire gate_pe_en;
 
     wire               fsm_sync_valid;
-    wire signed [31:0]  fsm_feat_conv_sync;
-    wire signed [31:0]  fsm_gate_conv_sync;
+    wire signed [31:0] fsm_feat_conv_sync;
+    wire signed [31:0] fsm_gate_conv_sync;
+
+    //======================================================================
+    // Feature Weight Buffer Wires
+    //======================================================================
+
+    wire signed [DATA_WIDTH-1:0] feat_pe0_weight_0, feat_pe0_weight_1, feat_pe0_weight_2, feat_pe0_weight_3;
+    wire signed [DATA_WIDTH-1:0] feat_pe0_weight_4, feat_pe0_weight_5, feat_pe0_weight_6, feat_pe0_weight_7;
+    wire signed [DATA_WIDTH-1:0] feat_pe0_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] feat_pe1_weight_0, feat_pe1_weight_1, feat_pe1_weight_2, feat_pe1_weight_3;
+    wire signed [DATA_WIDTH-1:0] feat_pe1_weight_4, feat_pe1_weight_5, feat_pe1_weight_6, feat_pe1_weight_7;
+    wire signed [DATA_WIDTH-1:0] feat_pe1_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] feat_pe2_weight_0, feat_pe2_weight_1, feat_pe2_weight_2, feat_pe2_weight_3;
+    wire signed [DATA_WIDTH-1:0] feat_pe2_weight_4, feat_pe2_weight_5, feat_pe2_weight_6, feat_pe2_weight_7;
+    wire signed [DATA_WIDTH-1:0] feat_pe2_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] feat_pe3_weight_0, feat_pe3_weight_1, feat_pe3_weight_2, feat_pe3_weight_3;
+    wire signed [DATA_WIDTH-1:0] feat_pe3_weight_4, feat_pe3_weight_5, feat_pe3_weight_6, feat_pe3_weight_7;
+    wire signed [DATA_WIDTH-1:0] feat_pe3_weight_8;
+
+    wire signed [31:0] feat_pe0_bias;
+    wire signed [31:0] feat_pe1_bias;
+    wire signed [31:0] feat_pe2_bias;
+    wire signed [31:0] feat_pe3_bias;
+
+
+    //======================================================================
+    // Gate Weight Buffer Wires
+    //======================================================================
+
+    wire signed [DATA_WIDTH-1:0] gate_pe0_weight_0, gate_pe0_weight_1, gate_pe0_weight_2, gate_pe0_weight_3;
+    wire signed [DATA_WIDTH-1:0] gate_pe0_weight_4, gate_pe0_weight_5, gate_pe0_weight_6, gate_pe0_weight_7;
+    wire signed [DATA_WIDTH-1:0] gate_pe0_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] gate_pe1_weight_0, gate_pe1_weight_1, gate_pe1_weight_2, gate_pe1_weight_3;
+    wire signed [DATA_WIDTH-1:0] gate_pe1_weight_4, gate_pe1_weight_5, gate_pe1_weight_6, gate_pe1_weight_7;
+    wire signed [DATA_WIDTH-1:0] gate_pe1_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] gate_pe2_weight_0, gate_pe2_weight_1, gate_pe2_weight_2, gate_pe2_weight_3;
+    wire signed [DATA_WIDTH-1:0] gate_pe2_weight_4, gate_pe2_weight_5, gate_pe2_weight_6, gate_pe2_weight_7;
+    wire signed [DATA_WIDTH-1:0] gate_pe2_weight_8;
+
+    wire signed [DATA_WIDTH-1:0] gate_pe3_weight_0, gate_pe3_weight_1, gate_pe3_weight_2, gate_pe3_weight_3;
+    wire signed [DATA_WIDTH-1:0] gate_pe3_weight_4, gate_pe3_weight_5, gate_pe3_weight_6, gate_pe3_weight_7;
+    wire signed [DATA_WIDTH-1:0] gate_pe3_weight_8;
+
+    wire signed [31:0] gate_pe0_bias;
+    wire signed [31:0] gate_pe1_bias;
+    wire signed [31:0] gate_pe2_bias;
+    wire signed [31:0] gate_pe3_bias;
 
     //=========================================================================
     // 3. Shared Line Buffer
@@ -135,6 +183,120 @@ module npu_top #(
         gate_in_valid_ctrl & line_data_valid;
 
     //=========================================================================
+    // Weight Buffers (Feature & Gate)
+    //=========================================================================
+
+    weight_buffer #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_feat_weight_buffer (
+        .clk(clk),
+        .reset(reset),
+
+        .wr_en(feat_weight_wr_en),
+        .wr_addr(feat_weight_wr_addr),
+        .wr_data(feat_weight_wr_data),
+
+        .pe0_weight_0(feat_pe0_weight_0),
+        .pe0_weight_1(feat_pe0_weight_1),
+        .pe0_weight_2(feat_pe0_weight_2),
+        .pe0_weight_3(feat_pe0_weight_3),
+        .pe0_weight_4(feat_pe0_weight_4),
+        .pe0_weight_5(feat_pe0_weight_5),
+        .pe0_weight_6(feat_pe0_weight_6),
+        .pe0_weight_7(feat_pe0_weight_7),
+        .pe0_weight_8(feat_pe0_weight_8),
+        .pe0_bias(feat_pe0_bias),
+
+        .pe1_weight_0(feat_pe1_weight_0),
+        .pe1_weight_1(feat_pe1_weight_1),
+        .pe1_weight_2(feat_pe1_weight_2),
+        .pe1_weight_3(feat_pe1_weight_3),
+        .pe1_weight_4(feat_pe1_weight_4),
+        .pe1_weight_5(feat_pe1_weight_5),
+        .pe1_weight_6(feat_pe1_weight_6),
+        .pe1_weight_7(feat_pe1_weight_7),
+        .pe1_weight_8(feat_pe1_weight_8),
+        .pe1_bias(feat_pe1_bias),
+
+        .pe2_weight_0(feat_pe2_weight_0),
+        .pe2_weight_1(feat_pe2_weight_1),
+        .pe2_weight_2(feat_pe2_weight_2),
+        .pe2_weight_3(feat_pe2_weight_3),
+        .pe2_weight_4(feat_pe2_weight_4),
+        .pe2_weight_5(feat_pe2_weight_5),
+        .pe2_weight_6(feat_pe2_weight_6),
+        .pe2_weight_7(feat_pe2_weight_7),
+        .pe2_weight_8(feat_pe2_weight_8),
+        .pe2_bias(feat_pe2_bias),
+
+        .pe3_weight_0(feat_pe3_weight_0),
+        .pe3_weight_1(feat_pe3_weight_1),
+        .pe3_weight_2(feat_pe3_weight_2),
+        .pe3_weight_3(feat_pe3_weight_3),
+        .pe3_weight_4(feat_pe3_weight_4),
+        .pe3_weight_5(feat_pe3_weight_5),
+        .pe3_weight_6(feat_pe3_weight_6),
+        .pe3_weight_7(feat_pe3_weight_7),
+        .pe3_weight_8(feat_pe3_weight_8),
+        .pe3_bias(feat_pe3_bias)
+    );
+
+    weight_buffer #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_gate_weight_buffer (
+        .clk(clk),
+        .reset(reset),
+
+        .wr_en(gate_weight_wr_en),
+        .wr_addr(gate_weight_wr_addr),
+        .wr_data(gate_weight_wr_data),
+
+        .pe0_weight_0(gate_pe0_weight_0),
+        .pe0_weight_1(gate_pe0_weight_1),
+        .pe0_weight_2(gate_pe0_weight_2),
+        .pe0_weight_3(gate_pe0_weight_3),
+        .pe0_weight_4(gate_pe0_weight_4),
+        .pe0_weight_5(gate_pe0_weight_5),
+        .pe0_weight_6(gate_pe0_weight_6),
+        .pe0_weight_7(gate_pe0_weight_7),
+        .pe0_weight_8(gate_pe0_weight_8),
+        .pe0_bias(gate_pe0_bias),
+
+        .pe1_weight_0(gate_pe1_weight_0),
+        .pe1_weight_1(gate_pe1_weight_1),
+        .pe1_weight_2(gate_pe1_weight_2),
+        .pe1_weight_3(gate_pe1_weight_3),
+        .pe1_weight_4(gate_pe1_weight_4),
+        .pe1_weight_5(gate_pe1_weight_5),
+        .pe1_weight_6(gate_pe1_weight_6),
+        .pe1_weight_7(gate_pe1_weight_7),
+        .pe1_weight_8(gate_pe1_weight_8),
+        .pe1_bias(gate_pe1_bias),
+
+        .pe2_weight_0(gate_pe2_weight_0),
+        .pe2_weight_1(gate_pe2_weight_1),
+        .pe2_weight_2(gate_pe2_weight_2),
+        .pe2_weight_3(gate_pe2_weight_3),
+        .pe2_weight_4(gate_pe2_weight_4),
+        .pe2_weight_5(gate_pe2_weight_5),
+        .pe2_weight_6(gate_pe2_weight_6),
+        .pe2_weight_7(gate_pe2_weight_7),
+        .pe2_weight_8(gate_pe2_weight_8),
+        .pe2_bias(gate_pe2_bias),
+
+        .pe3_weight_0(gate_pe3_weight_0),
+        .pe3_weight_1(gate_pe3_weight_1),
+        .pe3_weight_2(gate_pe3_weight_2),
+        .pe3_weight_3(gate_pe3_weight_3),
+        .pe3_weight_4(gate_pe3_weight_4),
+        .pe3_weight_5(gate_pe3_weight_5),
+        .pe3_weight_6(gate_pe3_weight_6),
+        .pe3_weight_7(gate_pe3_weight_7),
+        .pe3_weight_8(gate_pe3_weight_8),
+        .pe3_bias(gate_pe3_bias)
+    );
+
+    //=========================================================================
     // 4. Feature PE Array
     //=========================================================================
 
@@ -163,132 +325,52 @@ module npu_top #(
         .line_out2 (line_out2),
 
         // PE0
-        .pe0_weight_0 (
-            $signed(feat_weights_flat[(0*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_1 (
-            $signed(feat_weights_flat[(1*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_2 (
-            $signed(feat_weights_flat[(2*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_3 (
-            $signed(feat_weights_flat[(3*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_4 (
-            $signed(feat_weights_flat[(4*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_5 (
-            $signed(feat_weights_flat[(5*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_6 (
-            $signed(feat_weights_flat[(6*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_7 (
-            $signed(feat_weights_flat[(7*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_8 (
-            $signed(feat_weights_flat[(8*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_bias (
-            $signed(feat_biases_flat[(0*32) +: 32])
-        ),
+        .pe0_weight_0 (feat_pe0_weight_0),
+        .pe0_weight_1 (feat_pe0_weight_1),
+        .pe0_weight_2 (feat_pe0_weight_2),
+        .pe0_weight_3 (feat_pe0_weight_3),
+        .pe0_weight_4 (feat_pe0_weight_4),
+        .pe0_weight_5 (feat_pe0_weight_5),
+        .pe0_weight_6 (feat_pe0_weight_6),
+        .pe0_weight_7 (feat_pe0_weight_7),
+        .pe0_weight_8 (feat_pe0_weight_8),
+        .pe0_bias     (feat_pe0_bias),
 
         // PE1
-        .pe1_weight_0 (
-            $signed(feat_weights_flat[(9*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_1 (
-            $signed(feat_weights_flat[(10*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_2 (
-            $signed(feat_weights_flat[(11*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_3 (
-            $signed(feat_weights_flat[(12*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_4 (
-            $signed(feat_weights_flat[(13*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_5 (
-            $signed(feat_weights_flat[(14*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_6 (
-            $signed(feat_weights_flat[(15*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_7 (
-            $signed(feat_weights_flat[(16*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_8 (
-            $signed(feat_weights_flat[(17*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_bias (
-            $signed(feat_biases_flat[(1*32) +: 32])
-        ),
+        .pe1_weight_0 (feat_pe1_weight_0),
+        .pe1_weight_1 (feat_pe1_weight_1),
+        .pe1_weight_2 (feat_pe1_weight_2),
+        .pe1_weight_3 (feat_pe1_weight_3),
+        .pe1_weight_4 (feat_pe1_weight_4),
+        .pe1_weight_5 (feat_pe1_weight_5),
+        .pe1_weight_6 (feat_pe1_weight_6),
+        .pe1_weight_7 (feat_pe1_weight_7),
+        .pe1_weight_8 (feat_pe1_weight_8),
+        .pe1_bias     (feat_pe1_bias),
 
         // PE2
-        .pe2_weight_0 (
-            $signed(feat_weights_flat[(18*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_1 (
-            $signed(feat_weights_flat[(19*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_2 (
-            $signed(feat_weights_flat[(20*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_3 (
-            $signed(feat_weights_flat[(21*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_4 (
-            $signed(feat_weights_flat[(22*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_5 (
-            $signed(feat_weights_flat[(23*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_6 (
-            $signed(feat_weights_flat[(24*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_7 (
-            $signed(feat_weights_flat[(25*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_8 (
-            $signed(feat_weights_flat[(26*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_bias (
-            $signed(feat_biases_flat[(2*32) +: 32])
-        ),
+        .pe2_weight_0 (feat_pe2_weight_0),
+        .pe2_weight_1 (feat_pe2_weight_1),
+        .pe2_weight_2 (feat_pe2_weight_2),
+        .pe2_weight_3 (feat_pe2_weight_3),
+        .pe2_weight_4 (feat_pe2_weight_4),
+        .pe2_weight_5 (feat_pe2_weight_5),
+        .pe2_weight_6 (feat_pe2_weight_6),
+        .pe2_weight_7 (feat_pe2_weight_7),
+        .pe2_weight_8 (feat_pe2_weight_8),
+        .pe2_bias     (feat_pe2_bias),
 
         // PE3
-        .pe3_weight_0 (
-            $signed(feat_weights_flat[(27*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_1 (
-            $signed(feat_weights_flat[(28*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_2 (
-            $signed(feat_weights_flat[(29*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_3 (
-            $signed(feat_weights_flat[(30*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_4 (
-            $signed(feat_weights_flat[(31*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_5 (
-            $signed(feat_weights_flat[(32*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_6 (
-            $signed(feat_weights_flat[(33*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_7 (
-            $signed(feat_weights_flat[(34*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_8 (
-            $signed(feat_weights_flat[(35*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_bias (
-            $signed(feat_biases_flat[(3*32) +: 32])
-        ),
+        .pe3_weight_0 (feat_pe3_weight_0),
+        .pe3_weight_1 (feat_pe3_weight_1),
+        .pe3_weight_2 (feat_pe3_weight_2),
+        .pe3_weight_3 (feat_pe3_weight_3),
+        .pe3_weight_4 (feat_pe3_weight_4),
+        .pe3_weight_5 (feat_pe3_weight_5),
+        .pe3_weight_6 (feat_pe3_weight_6),
+        .pe3_weight_7 (feat_pe3_weight_7),
+        .pe3_weight_8 (feat_pe3_weight_8),
+        .pe3_bias     (feat_pe3_bias),
 
         .pe0_conv_out   (feat_conv0),
         .pe1_conv_out   (feat_conv1),
@@ -332,132 +414,52 @@ module npu_top #(
         .line_out2 (line_out2),
 
         // PE0
-        .pe0_weight_0 (
-            $signed(gate_weights_flat[(0*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_1 (
-            $signed(gate_weights_flat[(1*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_2 (
-            $signed(gate_weights_flat[(2*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_3 (
-            $signed(gate_weights_flat[(3*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_4 (
-            $signed(gate_weights_flat[(4*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_5 (
-            $signed(gate_weights_flat[(5*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_6 (
-            $signed(gate_weights_flat[(6*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_7 (
-            $signed(gate_weights_flat[(7*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_weight_8 (
-            $signed(gate_weights_flat[(8*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe0_bias (
-            $signed(gate_biases_flat[(0*32) +: 32])
-        ),
+        .pe0_weight_0 (gate_pe0_weight_0),
+        .pe0_weight_1 (gate_pe0_weight_1),
+        .pe0_weight_2 (gate_pe0_weight_2),
+        .pe0_weight_3 (gate_pe0_weight_3),
+        .pe0_weight_4 (gate_pe0_weight_4),
+        .pe0_weight_5 (gate_pe0_weight_5),
+        .pe0_weight_6 (gate_pe0_weight_6),
+        .pe0_weight_7 (gate_pe0_weight_7),
+        .pe0_weight_8 (gate_pe0_weight_8),
+        .pe0_bias     (gate_pe0_bias),
 
         // PE1
-        .pe1_weight_0 (
-            $signed(gate_weights_flat[(9*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_1 (
-            $signed(gate_weights_flat[(10*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_2 (
-            $signed(gate_weights_flat[(11*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_3 (
-            $signed(gate_weights_flat[(12*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_4 (
-            $signed(gate_weights_flat[(13*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_5 (
-            $signed(gate_weights_flat[(14*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_6 (
-            $signed(gate_weights_flat[(15*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_7 (
-            $signed(gate_weights_flat[(16*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_weight_8 (
-            $signed(gate_weights_flat[(17*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe1_bias (
-            $signed(gate_biases_flat[(1*32) +: 32])
-        ),
+        .pe1_weight_0 (gate_pe1_weight_0),
+        .pe1_weight_1 (gate_pe1_weight_1),
+        .pe1_weight_2 (gate_pe1_weight_2),
+        .pe1_weight_3 (gate_pe1_weight_3),
+        .pe1_weight_4 (gate_pe1_weight_4),
+        .pe1_weight_5 (gate_pe1_weight_5),
+        .pe1_weight_6 (gate_pe1_weight_6),
+        .pe1_weight_7 (gate_pe1_weight_7),
+        .pe1_weight_8 (gate_pe1_weight_8),
+        .pe1_bias     (gate_pe1_bias),
 
         // PE2
-        .pe2_weight_0 (
-            $signed(gate_weights_flat[(18*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_1 (
-            $signed(gate_weights_flat[(19*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_2 (
-            $signed(gate_weights_flat[(20*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_3 (
-            $signed(gate_weights_flat[(21*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_4 (
-            $signed(gate_weights_flat[(22*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_5 (
-            $signed(gate_weights_flat[(23*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_6 (
-            $signed(gate_weights_flat[(24*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_7 (
-            $signed(gate_weights_flat[(25*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_weight_8 (
-            $signed(gate_weights_flat[(26*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe2_bias (
-            $signed(gate_biases_flat[(2*32) +: 32])
-        ),
+        .pe2_weight_0 (gate_pe2_weight_0),
+        .pe2_weight_1 (gate_pe2_weight_1),
+        .pe2_weight_2 (gate_pe2_weight_2),
+        .pe2_weight_3 (gate_pe2_weight_3),
+        .pe2_weight_4 (gate_pe2_weight_4),
+        .pe2_weight_5 (gate_pe2_weight_5),
+        .pe2_weight_6 (gate_pe2_weight_6),
+        .pe2_weight_7 (gate_pe2_weight_7),
+        .pe2_weight_8 (gate_pe2_weight_8),
+        .pe2_bias     (gate_pe2_bias),
 
         // PE3
-        .pe3_weight_0 (
-            $signed(gate_weights_flat[(27*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_1 (
-            $signed(gate_weights_flat[(28*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_2 (
-            $signed(gate_weights_flat[(29*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_3 (
-            $signed(gate_weights_flat[(30*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_4 (
-            $signed(gate_weights_flat[(31*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_5 (
-            $signed(gate_weights_flat[(32*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_6 (
-            $signed(gate_weights_flat[(33*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_7 (
-            $signed(gate_weights_flat[(34*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_weight_8 (
-            $signed(gate_weights_flat[(35*DATA_WIDTH) +: DATA_WIDTH])
-        ),
-        .pe3_bias (
-            $signed(gate_biases_flat[(3*32) +: 32])
-        ),
+        .pe3_weight_0 (gate_pe3_weight_0),
+        .pe3_weight_1 (gate_pe3_weight_1),
+        .pe3_weight_2 (gate_pe3_weight_2),
+        .pe3_weight_3 (gate_pe3_weight_3),
+        .pe3_weight_4 (gate_pe3_weight_4),
+        .pe3_weight_5 (gate_pe3_weight_5),
+        .pe3_weight_6 (gate_pe3_weight_6),
+        .pe3_weight_7 (gate_pe3_weight_7),
+        .pe3_weight_8 (gate_pe3_weight_8),
+        .pe3_bias     (gate_pe3_bias),
 
         .pe0_conv_out   (gate_conv0),
         .pe1_conv_out   (gate_conv1),
