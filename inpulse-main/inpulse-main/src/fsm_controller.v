@@ -9,18 +9,6 @@
 //       2) 3-Line Buffer 리드 인에이블 및 PE in_valid 타이밍 제어
 //       3) 두 트랙 간 출력 정합
 //     을 담당한다.
-//
-// 변경 사항 (원본 대비):
-//   - 기존 7번 섹션의 다중-entry FIFO 기반 Register Pipeline Matcher
-//     (rendezvous 로직)를 제거했습니다. Feature/Gate 트랙이 동일한
-//     pe.v 파이프라인(동일 레이턴시)을 사용하므로 애초에 두 트랙은
-//     이미 같은 사이클에 결과가 나옵니다. npu_top.v도 이 FIFO 출력
-//     (sync_valid_out/feat_conv_sync/gate_conv_sync)을 쓰지 않고
-//     feat_conv0/gate_conv0을 직접 사용하고 있었기 때문에, 기존 FIFO는
-//     불필요한 레지스터/메모리만 소모하는 dead logic이었습니다.
-//   - 포트 인터페이스(sync_valid_out/feat_conv_sync/gate_conv_sync)는
-//     기존 연결(npu_top.v 등)을 깨지 않기 위해 그대로 유지하되, 내부
-//     구현은 단순 pass-through로 교체했습니다.
 //=====================================================================
 
 module fsm_controller #(
@@ -95,8 +83,7 @@ module fsm_controller #(
 
     reg [1:0]  state, state_n;
 
-    // 레이어 시작 시점의 모드를 래치 (레이어 도중 mode_int4가 바뀌면 안 되므로
-    // layer_start 시점에 래치해서 레이어 내내 고정)
+    // 레이어 시작 시점의 모드를 래치
     reg        mode_int4_latched;
 
     reg [15:0] rd_cnt;        // 이번 레이어에서 지금까지 발생한 rd_en(=in_valid 요청) 수
@@ -122,8 +109,8 @@ module fsm_controller #(
             S_IDLE:  if (layer_start) state_n = S_RUN;
             S_RUN:   if (rd_done)     state_n = S_DRAIN;
             S_DRAIN: if (out_done)    state_n = S_DONE;
-            S_DONE:                  state_n = S_IDLE;
-            default:                 state_n = S_IDLE;
+            S_DONE:                   state_n = S_IDLE;
+            default:                  state_n = S_IDLE;
         endcase
     end
 
@@ -138,7 +125,7 @@ module fsm_controller #(
             layer_done        <= 1'b0;
         end
         else begin
-            layer_done <= 1'b0; // 기본값: 1클럭 pulse
+            layer_done <= 1'b0;
 
             case (state)
                 S_IDLE: begin
@@ -255,17 +242,11 @@ module fsm_controller #(
         end
     endgenerate
 
-    // PE Array 인에이블(클럭게이팅/레지스터용) : RUN 또는 DRAIN 상태 내내 유지해야
-    // 파이프라인에 이미 흘러들어간 데이터가 끝까지 흐를 수 있다.
     assign feat_pe_en = (state == S_RUN) || (state == S_DRAIN);
     assign gate_pe_en = feat_pe_en;
 
     //=================================================================
     // 7. 출력 정합 (단순 pass-through)
-    //
-    //    [수정] 기존의 다중-entry FIFO 기반 rendezvous 로직을 제거했습니다.
-    //    Feature/Gate 트랙이 동일한 pe.v 파이프라인을 통과하므로 이미
-    //    동일 레이턴시로 도착하기 때문에 별도 정렬 없이 그대로 전달합니다.
     //=================================================================
     always @(posedge clk or posedge reset) begin
         if (reset) begin
