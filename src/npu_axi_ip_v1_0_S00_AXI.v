@@ -182,7 +182,7 @@ module npu_axi_ip_v1_0_S00_AXI # (
     end
 
     //--------------------------------------------------------------------------
-    // NPU Core 아키텍처 인스턴스화 통합 파트
+    // NPU Core 아키텍처 인스턴스화 통합 파트 (최신 업데이트 반영)
     //--------------------------------------------------------------------------
     wire         npu_layer_done;
     wire [15:0]  npu_out_data;
@@ -195,7 +195,8 @@ module npu_axi_ip_v1_0_S00_AXI # (
     npu_top #(
         .DATA_WIDTH(8),
         .LINE_LENGTH(1024),
-        .ACT_DATA_WIDTH(16)
+        .ACT_DATA_WIDTH(16),
+        .FRAC_WIDTH(8)        // 👈 팀원들의 전력/면적 최적화 파라미터 결합 완료!
     ) u_npu_top (
         .clk              (S_AXI_ACLK),
         .reset            (!S_AXI_ARESETN),
