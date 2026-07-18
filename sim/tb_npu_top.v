@@ -3,35 +3,34 @@
 module tb_npu_top;
 
     //=========================================================================
-    // 1. Parameters & Signals
+    // 1. Parameters
     //=========================================================================
     parameter DATA_WIDTH        = 8;
     parameter LINE_LENGTH       = 1024;
     parameter ACT_DATA_WIDTH    = 16;
     parameter FRAC_WIDTH        = 8;
 
-    // Inputs
+    //=========================================================================
+    // 2. Signals
+    //=========================================================================
     reg clk;
     reg reset;
 
-    // Layer control
     reg        layer_start;
     reg        layer_is_deep;
     reg [15:0] layer_out_pixels;
+    wire       layer_done;
 
-    // Input pixel stream
-    reg                 photo_data_valid;
+    reg                  photo_data_valid;
     reg [DATA_WIDTH-1:0] pixel_data_in;
 
-    // [수정된 포트] 통합된 공용 Weight 쓰기 버스 신호들
+    // 통합된 가중치 버퍼 입력 신호
     reg        weight_wr_en;
-    reg        weight_wr_target; // 0: Feature, 1: Gate
+    reg        weight_wr_target;
     reg [3:0]  weight_wr_addr;
     reg [31:0] weight_wr_data;
 
-    // Outputs
-    wire                             layer_done;
-    // [수정된 포트] 시분할 4채널 출력 포트들
+    // 시분할 1가닥 출력 신호
     wire signed [ACT_DATA_WIDTH-1:0] out_data;
     wire [1:0]                       out_ch_sel;
     wire                             output_valid;
@@ -39,7 +38,7 @@ module tb_npu_top;
     integer i;
 
     //=========================================================================
-    // 2. DUT (Device Under Test) Instantiation
+    // 3. DUT (Device Under Test) Instantiation
     //=========================================================================
     npu_top #(
         .DATA_WIDTH(DATA_WIDTH),
@@ -49,29 +48,23 @@ module tb_npu_top;
     ) uut (
         .clk(clk),
         .reset(reset),
-
         .layer_start(layer_start),
         .layer_is_deep(layer_is_deep),
         .layer_out_pixels(layer_out_pixels),
         .layer_done(layer_done),
-
         .photo_data_valid(photo_data_valid),
         .pixel_data_in(pixel_data_in),
-
-        // [수정] 새 인터페이스 매칭
         .weight_wr_en(weight_wr_en),
         .weight_wr_target(weight_wr_target),
         .weight_wr_addr(weight_wr_addr),
         .weight_wr_data(weight_wr_data),
-
-        // [수정] 새 인터페이스 매칭
         .out_data(out_data),
         .out_ch_sel(out_ch_sel),
         .output_valid(output_valid)
     );
 
     //=========================================================================
-    // 3. Clock Generation (100MHz)
+    // 4. Clock Generation (100MHz, Period = 10ns)
     //=========================================================================
     initial begin
         clk = 0;
@@ -79,72 +72,77 @@ module tb_npu_top;
     end
 
     //=========================================================================
-    // 4. Test Scenario
+    // 5. Test Scenario
     //=========================================================================
     initial begin
-        // 초기값 설정
+        // 초기화 (0ns 시점에 모든 변수 확실히 초기화하여 X 주입 차단)
         reset = 1;
         layer_start = 0;
         layer_is_deep = 0;
         layer_out_pixels = 0;
-        
         photo_data_valid = 0;
         pixel_data_in = 0;
-        
         weight_wr_en = 0;
         weight_wr_target = 0;
         weight_wr_addr = 0;
         weight_wr_data = 0;
 
-        // 리셋 해제 대기
         #50;
-        reset = 0;
-        #20;
+        @(posedge clk);
+        #1 reset = 0; // 클럭 엣지 직후 안전하게 리셋 해제
+        @(posedge clk);
+        #1;
 
-        // [수정] (1) 공용 버스를 통해 가중치(Weight) 버퍼에 데이터 쓰기
-        $display("Loading Weights via shared bus...");
-        
-        // 1. Feature Weight 쓰기 (target = 0)
-        weight_wr_target = 1'b0;
+        // (1) Feature 가중치(Weight) 쓰기 (target = 0)
+        $display("Loading Feature Weights...");
+        weight_wr_target = 0; 
         for (i = 0; i < 10; i = i + 1) begin
             weight_wr_addr = i;
-            weight_wr_data = 32'h01010101; // 임의의 가중치 값
+            weight_wr_data = 32'h01010101; 
             weight_wr_en = 1;
-            #10;
+            @(posedge clk); // 클럭이 한 번 튈 때까지 대기 (확실한 1클럭 write)
+            #1;            // 홀드 타이밍 마진 확보
         end
         weight_wr_en = 0;
-        #10;
+        @(posedge clk);
+        #1;
 
-        // 2. Gate Weight 쓰기 (target = 1)
-        weight_wr_target = 1'b1;
+        // (2) Gate 가중치(Weight) 쓰기 (target = 1)
+        $display("Loading Gate Weights...");
+        weight_wr_target = 1; 
         for (i = 0; i < 10; i = i + 1) begin
             weight_wr_addr = i;
-            weight_wr_data = 32'h02020202; // 임의의 가중치 값
+            weight_wr_data = 32'h02020202; 
             weight_wr_en = 1;
-            #10;
+            @(posedge clk);
+            #1;
         end
         weight_wr_en = 0;
-        #20;
+        @(posedge clk);
+        #1;
 
-        // (2) 레이어 연산 시작 신호 (Start)
+        // (3) 레이어 연산 시작 신호
         $display("Starting Layer...");
         layer_is_deep = 0;
-        layer_out_pixels = 16'd100; // 100개의 픽셀 결과를 내보내도록 설정
+        layer_out_pixels = 16'd100;
         layer_start = 1;
-        #10;
-        layer_start = 0;
-        #20;
+        @(posedge clk);
+        #1 layer_start = 0;
+        @(posedge clk);
+        #1;
 
-        // (3) 이미지 픽셀 스트리밍 시작
+        // (4) 이미지 픽셀 스트리밍 시작
         $display("Streaming Pixel Data...");
         for (i = 0; i < (LINE_LENGTH * 4); i = i + 1) begin
             photo_data_valid = 1;
-            pixel_data_in = i[7:0]; // 0~255 값이 반복해서 들어가게 설정
-            #10;
+            pixel_data_in = i[7:0];
+            @(posedge clk);
+            #1;
         end
         photo_data_valid = 0;
+        pixel_data_in = 0;
 
-        // (4) 레이어 처리가 끝날 때까지 대기
+        // (5) 종료 대기
         $display("Waiting for layer_done...");
         wait(layer_done == 1'b1);
         #100;
